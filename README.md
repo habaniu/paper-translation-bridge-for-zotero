@@ -1,17 +1,16 @@
-# Paper Translation Bridge for Zotero（0.4.3）
+# Paper Translation Bridge for Zotero
 
-本仓库同时提供论文翻译 skill 和 Zotero 译文侧栏。**Agent 负责建档、翻译与核对；Zotero 插件只读取本地 PDF、索引和译文，提供双向定位，不调用翻译模型。** 论文 PDF、译文和本机配置不随源码上传。
+让 Agent 通篇翻译论文，然后在 Zotero 里对照原文读。仓库里有两部分：一个翻译 skill（在 `.agents/skills/paper-translation/`）和一个 Zotero 侧栏插件（在 `plugin/`）。翻译由 Agent 完成，插件只负责显示——它读本地的 PDF、索引和译文，做双向定位，不联网，不碰模型。
 
-## 文件在哪里、怎么用
+当前版本 0.4.3。
 
-- **Skill：**[`.agents/skills/paper-translation/SKILL.md`](.agents/skills/paper-translation/SKILL.md)。以本仓库为 Codex 工作区时，Agent 可发现并使用它；明确要求“通篇翻译这篇论文”时使用。只问论文内容或只翻译一节时，不触发全文流程。
-- **翻译规则：**[`TRANSLATION_PROTOCOL.md`](TRANSLATION_PROTOCOL.md)。说明主体范围、句子编号、图表与公式处理、版面复核及验收标准；skill 会先读它。
-- **准备与校验程序：**`scripts/prepare-paper.mjs`、`cli.mjs`。前者保存同版 `paper.pdf` 并生成源索引，后者可重建译文定位映射。
-- **Zotero 插件源码：**`plugin/`，构建入口是 `scripts/build-plugin.mjs`；安装包在本地构建后生成于 `dist/`。
+## 快速上手
 
-首次使用：安装 Node.js 22.13+、Python 3 和 `pdfplumber`，然后在仓库根目录运行：
+需要 Node.js 22.13+、Python 3 和 pdfplumber。首次使用（以下命令都在仓库根目录执行，`$PWD` 即该根目录；`.venv`、`node_modules`、`papers/` 都在 `.gitignore` 里，是本机产物）：
 
 ```bash
+git clone https://github.com/habaniu/paper-translation-bridge-for-zotero.git
+cd paper-translation-bridge-for-zotero
 npm ci
 python3 -m venv .venv
 .venv/bin/python -m pip install pdfplumber==0.11.9
@@ -19,99 +18,78 @@ export PDF_LAYOUT_PYTHON="$PWD/.venv/bin/python"
 node scripts/prepare-paper.mjs "$PWD/papers/example-paper" --pdf "/path/to/paper.pdf"
 ```
 
-将 PDF 路径换成自己的。仓库内的 `papers/` 是本地论文工作区，已被 Git 忽略。准备后，打开**这个仓库**作为 Codex 工作区，提出“通篇翻译这篇论文，目录是 `papers/example-paper`”。Agent 按 skill 阅读 PDF 与索引，写入该论文目录的 `translated.md`，并运行 `node cli.mjs align` 检查定位；人工还需核对版面警告、正文覆盖及图表公式。若只是使用已准备好的 PDF，可省略 `--pdf`，同版文件会复用，不同版不会被覆盖。
+`--pdf` 换成你自己的文件路径。`papers/` 是本地论文工作区，已被 Git 忽略，克隆后不存在，由上面这条命令按需创建；目录名可以自己取，不一定要叫 `example-paper`。同一份 PDF 会复用，不同版本不会覆盖旧文件。`export` 只对当前终端会话有效，新开终端要么重新执行，要么把这行写进 `~/.zshrc`。
 
-要在 Zotero 中阅读，运行 `npm run build:plugin`，安装生成的 XPI，并把插件的“本地目录设置”指向论文目录的**父目录**（上述例子为仓库内的 `papers/` 绝对路径）。日常阅读不需要运行 Node/Python 服务。详细界面操作见下文。
+准备好之后，把这个仓库作为 Agent 的工作区打开，说"通篇翻译这篇论文，目录是 `papers/example-paper`"。Agent 会按 skill 的流程读 PDF 和索引，把译文写进该目录的 `translated.md`，然后跑 `node cli.mjs align` 检查句子定位。机器检查之外，版面警告和图表公式还需要人眼看一遍（见「版面复核与修正」）。
 
-## 双向整句对照
+要在 Zotero 里读：运行 `npm run build:plugin`，在 Zotero 里从文件安装 `dist/` 下生成的 XPI，然后在「工具 → 论文译文：本地目录设置」里把路径指到论文目录的**父目录**（上面例子里就是 `papers/` 的绝对路径）。之后日常阅读不需要起任何服务。
 
-- 译文分区展开且实际可见时，选中英文会高亮对应译文和完整原句；不会因为选英文改变 PDF 滚动位置。
-- 双击中文译文块，两侧同时高亮，PDF 只沿纵轴平滑滚动到对应原句并居中；合译块高亮全部对应句子，跨页优先定位首句所在页。
-- 原文使用临时覆盖层，不创建 Zotero 批注，也不修改 PDF。选中新句、收起右栏/译文分区、切换标签或卸载插件时清理。关闭右栏时的英文选择不会排队到重开后执行。
-- 区域版索引使用准备阶段测量的 PDF 字形坐标；旧索引仍保留 Zotero 文本查找。找不到可靠区域或接口不兼容时提示失败，不猜测位置。此适配使用部分内部接口，升级 Zotero 后需回归验证。
-- 本版不实现滚动同步（功能 1）。
+## 对照阅读怎么工作
 
-在 **Zotero 10.x 主窗口的 PDF 标签页**右侧，利用官方 ItemPaneManager 增加“论文译文”分区。直接读取本地 Markdown，选中英文并松开鼠标后，高亮对应完整译句并在译文容器内居中。无需浏览器、Node 服务或配对令牌，不调用翻译模型，不修改 PDF、批注或译文。
+在主窗口的 PDF 标签页右侧，插件通过官方 ItemPaneManager 加了一个「论文译文」分区，直接渲染本地的 `translated.md`。
 
-## 安装与使用
+- 选中英文、松开鼠标，对应的中文整句会高亮并在译文区居中。PDF 不跟着动。
+- 双击中文译文块，两侧一起高亮，PDF 平滑滚动到原句。合译块会高亮所有对应句子。
+- 高亮用的是临时覆盖层，不建批注、不改 PDF。换句、收起面板、切标签都会自动清掉。
 
-1. Zotero → 工具 → 插件 → 从文件安装，选择本地构建的 `dist/paper-translation-bridge-0.4.3.xpi`，升级原来的同 ID 插件。升级后建议完全退出再启动，避免旧分区/本地化资源残留。
-2. 工具 → 论文译文：本地目录设置，选择你存放论文工作目录的父目录，例如本仓库的 `papers/` 绝对路径。路径只保存在本机 Zotero 首选项。
-3. 在 Zotero 主窗口打开 PDF 标签，展开右侧条目面板，点击“论文译文”导航图标/分区。可使用 Zotero 自带的固定分区功能保留显示，并拖宽右侧栏。
-4. 使用普通文本选择工具选中几个英文词；对应整句中文会高亮、居中。跨句时同时高亮；超过一屏时先显示第一个译文块。
+定位不靠文本模糊匹配。准备阶段用 pdfplumber 量了每个字形的坐标，选句和回跳都用这套坐标，所以公式里的符号也能定。找不到可靠位置就直接提示失败，不猜。
 
-译文每约 2.5 秒检查更新，也可点“刷新”。**不需要执行 `npm start`。** 当前实现面向主窗口阅读标签；独立 PDF 阅读窗口未实现侧栏支持，不能当作已支持功能。
+## 文件长什么样
 
-## 文件与校验
-
-仍读取 `papers/<论文目录>/` 下的文件，不复制进 Zotero 数据库：
+每篇论文一个目录，插件按目录读取，不复制进 Zotero 数据库：
 
 ```text
-paper.pdf
-translated.md
-.translation/source.json
+papers/<论文目录>/
+├── paper.pdf                    # 原文
+├── translated.md                # 译文（Agent 写的唯一产物）
+└── .translation/source.json     # 源索引：哈希、句子编号、坐标
 ```
 
-`source.json` 和译文编号沿用 [TRANSLATION_PROTOCOL.md](TRANSLATION_PROTOCOL.md)。插件直接解析 `translated.md` 中的 SHA-256 与句子标记，不要求运行时存在 `translated.align.json`。无需重新翻译或重编号。
+编号规则和句子标记的写法见 [TRANSLATION\_PROTOCOL.md](TRANSLATION_PROTOCOL.md)，skill 翻译前会先读它。插件会同时校验 PDF 文件、源索引和译文里的 SHA-256，对不上就报错，不会悄悄猜。
 
-匹配同时校验 Zotero 附件、论文目录的 PDF、source.json、译文中的 PDF 哈希。不匹配、缺文件、空译文、重复/未知编号都会显示错误，不会悄悄猜测。缺号不当作错误：参考文献等排除内容本来就无需翻译。选区含未翻译句子时明确提示。
+一份 PDF 只能对应一个论文目录。如果同一个文件有多份拷贝，插件不会自动选，把要用的那份集中到一个父目录再指过去。
 
-每个 PDF 必须对应唯一论文目录；出现多个相同 PDF 副本时暂不自动绑定，界面会提示。可将需要使用的副本集中在一个独立父目录，再将插件指向该父目录。
+## 边界
 
-## 定位策略与边界
+- 跨页句子支持同页或相邻两页；三页以上、扫描件、复杂双栏抽取不保证成功。
+- 监听的是选区弹窗事件，不是拖动过程逐帧更新。
+- 独立 PDF 阅读窗口没有侧栏，只支持主窗口标签。
+- 本版没有滚动同步。
+- 插件用了一些 Zotero 内部接口，升级 Zotero 后建议回归验证选句和跳转。
+- 安全方面：Markdown 禁原始 HTML 和图片加载，KaTeX 用本地资源，论文内容不出本机。
 
-- 监听官方 `renderTextSelectionPopup`，使用选区英文、零基页码与相邻页标志。
-- 新区域索引按 PDF 页码和矩形匹配；公式中的纯符号也可以定位。反向跳转和高亮使用同一套坐标，不再用去掉数学符号后的文本猜位置。旧索引才沿用规范化文本查找。
-- **不假设 Zotero 的 PDF.js 文本项编号与离线索引相同。** 坐标来自测量字形，非等宽插值；新流程遇到未知区域不回退到模糊文字匹配。
-- 跨页原句作为完整句参与匹配；同页或相邻两页是支持范围。三页以上、复杂公式、扫描/OCR、复杂双栏抽取异常不保证成功。
-- 不是拖动过程中的逐帧更新，而是选区弹窗事件触发后的联动。
-- 选中英文时只滚动译文容器；双击中文时才主动导航 PDF。每个标签对应自己的译文视图，旧异步结果不得覆盖新标签。
+## 版面复核与修正
 
-Markdown 禁止原始 HTML，禁用图片加载；KaTeX 使用本地资源，关闭 trust。链接仅在主动点击时允许 HTTP/HTTPS 外部打开。插件不发送论文内容到网络。禁用/卸载会清理监听、定时器和界面，不删除论文文件或目录偏好。
-
-## 区域索引与旧译文升级
-
-准备阶段需要 Node.js 22.13+、Python 3 + pdfplumber（已在 0.11.9 验证）；设置 `PDF_LAYOUT_PYTHON` 可指定 Python。插件日常阅读不需要这些运行时或服务。安装依赖可使用独立 venv：`python3 -m venv .venv`，再运行 `.venv/bin/pip install pdfplumber==0.11.9`，将 `PDF_LAYOUT_PYTHON` 设为该 venv 的 Python 绝对路径。
-
-完整论文翻译使用 [paper-translation skill](.agents/skills/paper-translation/SKILL.md) 和 [翻译协议](TRANSLATION_PROTOCOL.md)。首次准备可运行 `npm run prepare-paper -- /path/to/papers/<论文目录> --pdf /path/to/original.pdf`；同版 PDF 会复用，不同版会拒绝覆盖。已有 `paper.pdf` 时省略 `--pdf` 即可再次准备。skill 依赖本仓库的协议和 CLI，使用时应保留完整仓库目录。
-
-在本仓库目录运行：
+索引在切句前先隔离标题和公式，避免公式里的标点干扰句子。建好索引后生成叠加图，人眼核对版面：
 
 ```bash
-# 新论文：自动生成编号、字形位置和版面报告
+# 生成编号、字形位置和版面报告
 node cli.mjs prepare papers/<论文目录>
-# 只生成区域草稿，不更改正式索引和译文
+
+# 生成区域叠加图，人眼核对
 node cli.mjs layout papers/<论文目录>
 node scripts/review-layout.mjs papers/<论文目录> 3,4
-# 旧译文：保留所有编号与译文字节，核对草稿后再加 --apply
+```
+
+复核页面在 `.translation/layout-draft/review/index.html`，正文绿、标题蓝、公式橙，红色虚线是待复核的候选框。公式识别有误时，在页面里框选完整公式、下载 `layout-overrides.json` 存到论文的 `.translation/`——修正记录绑定 PDF 指纹，可复用，不用手填坐标。
+
+目录里已经有 `translated.md` 时，改动复核记录或解析版本都不会自动重编号，重新准备会直接报错，只能走保留编号的迁移（将来解析版本升级导致索引变化时同理）：
+
+```bash
 node cli.mjs migrate-layout papers/<论文目录> --preserve-ids
 node cli.mjs migrate-layout papers/<论文目录> --preserve-ids --apply
 ```
 
-报告与叠加图位于 `.translation/layout-draft/`。标题、普通编号公式通过启发式独立分块；密集相邻编号、未编号、多行文字标签、异常字体等可能标为待复核，不承诺任意数学排版自动正确。扫描页不做 OCR。红色报告项不等于翻译遗漏，也不能忽略范围内实际问题。报告数量可能包含同一问题的区域与编号记录，并非错误公式数量。
+先不加 `--apply` 生成草稿并核对，确认无误再加。译文里的 `$$...\tag{N}...$$` 能自动绑定独立公式目标；没有唯一标签就不猜，歧义会阻塞迁移而不是替你选一个。完整流程和失败恢复（备份、`layout-migration.lock`）见翻译协议的「数据变更」部分。
 
-当前新索引使用 `regions-v2`：先隔离标题和公式，再合并正文、切分句子，避免公式内的 `s.t.` 等标点影响前后正文。已有索引不自动重编号。
-
-复核页为 `.translation/layout-draft/review/index.html`，与同目录页图一起保留，可本地打开。它显示正文、标题、公式和待复核候选框；红色虚线只用于诊断，不会变成可靠定位坐标。在“选择原始文本项”模式下，选择完整公式（含编号、上下标），填写核对说明并下载 `layout-overrides.json`，保存到论文的 `.translation/`，再生成并核对草稿。记录绑定 PDF 指纹和文本提取版本；重复占用文本项、只替换旧区域的一部分、字形测量失败会拒绝或继续标为待复核。修正记录可重复用于后续准备，不需手填坐标。完整流程见 [翻译协议的版面复核](TRANSLATION_PROTOCOL.md#版面复核与持久修正)。
-
-旧译文中的 `$$...\tag{N}...$$` 可自动绑定独立公式目标；没有唯一标签时不猜测。完整重编号迁移需去掉 `--preserve-ids`，有歧义则拒绝应用。备份、锁与失败恢复见 [翻译协议](TRANSLATION_PROTOCOL.md)。Agent 仍只写短 ID 标记和译文，不新增坐标/JSON 输出任务。
-
-## 开发与本地版本管理
-
-源码仓库不包含论文 PDF、译文、本机配置、令牌、构建产物或 `node_modules`。下列命令用于开发和验证。
+## 开发
 
 ```bash
 npm ci
-npm test
-npm run build:plugin
+npm test                 # node:test
+npm run build:plugin     # 打包 XPI 到 dist/
 ```
 
-构建将 Markdown/数学渲染库、许可和字体一起打包，不包括论文或秘密文件。Zotero 安装器必填的 `update_url` 使用保留 `.invalid` 地址；仅支持手工更新，自动检查更新可能提示连接失败。
+仓库不含论文 PDF、译文、本机配置和构建产物。插件的 `update_url` 用的是保留地址，没有自动更新，升级靠手动装新包。
 
-旧 IP 桥接服务及网页实现已从发布源码移除。自动测试和安装包完整性检查不等于 Zotero 实机操作验收；升级 Zotero 后应复核选句、双击跳转及公式定位。
-
-## 原始接口依据
-
-- [官方自定义右侧栏接口](https://www.zotero.org/support/dev/zotero_7_for_developers#custom_item_pane_sections)
-- [官方阅读器事件](https://www.zotero.org/support/dev/zotero_7_for_developers#custom_reader_event_handlers)
-- 已核对本机 Zotero 10.0.3 的 `pluginAPI/itemPaneManager.js`、`itemPaneCustomSection.js`、`elements/contextPane.js` 和 `xpcom/plugins.js`：分区生命周期、标签归属、插件资源加载与本地化契约。
+接口依据：[Zotero 自定义右侧栏](https://www.zotero.org/support/dev/zotero_7_for_developers#custom_item_pane_sections) 和[阅读器事件](https://www.zotero.org/support/dev/zotero_7_for_developers#custom_reader_event_handlers)。已在 Zotero 10.0.3 上核对过分区生命周期和插件资源加载的实现。
