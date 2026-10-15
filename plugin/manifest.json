@@ -1,0 +1,14 @@
+{
+  "manifest_version": 2,
+  "name": "论文译文联动 / Paper Translation Bridge",
+  "version": "0.4.3",
+  "description": "在 Zotero 右侧栏直接显示本地译文，选中英文后高亮并居中对应完整译句，无需外部服务。",
+  "applications": {
+    "zotero": {
+      "id": "paper-translation-bridge@local.papar",
+      "update_url": "https://paper-translation-bridge.invalid/updates.json",
+      "strict_min_version": "10.0",
+      "strict_max_version": "10.0.*"
+    }
+  }
+}

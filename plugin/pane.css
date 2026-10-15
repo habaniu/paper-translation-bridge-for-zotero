@@ -1,0 +1,20 @@
+.pt-host { contain: inline-size; min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
+.pt-pane { min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; font: 14px/1.7 system-ui, sans-serif; }
+.pt-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.pt-controls button { cursor: pointer; }
+.pt-status { font-size: 12px; opacity: .8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pt-content { width: 100%; max-width: 100%; min-width: 0; height: max(300px, calc(100vh - 250px)); overflow: auto; box-sizing: border-box; padding: 0 8px 35vh; scrollbar-gutter: stable; overflow-wrap: anywhere; white-space: normal; }
+.pt-fragment { min-width: 0; max-width: 100%; box-sizing: border-box; padding: 4px 8px; border-radius: 5px; border-left: 3px solid transparent; }
+.pt-fragment > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.pt-fragment p { margin: 6px 0; }
+.pt-fragment.pt-selected { background: #ffe69c; color: #252014; border-left-color: #d19500; }
+.pt-fragment h1 { font-size: 1.5em; }
+.pt-fragment h2 { font-size: 1.3em; }
+.pt-fragment h3 { font-size: 1.15em; }
+.pt-fragment table { border-collapse: collapse; display: block; overflow-x: auto; }
+.pt-fragment th, .pt-fragment td { border: 1px solid #9996; padding: 4px; }
+.pt-fragment pre, .pt-fragment .katex-display { overflow-x: auto; overflow-y: hidden; }
+/* Inline math may also be wider than the pane; scroll only the math itself. */
+.pt-fragment .katex { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
+/* Keep wide centered display math's left edge reachable in its scroll box. */
+.pt-fragment .katex-display > .katex { display: block; width: max-content; min-width: 100%; max-width: none; overflow: visible; }

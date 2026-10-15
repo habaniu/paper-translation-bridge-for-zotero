@@ -1,0 +1,17 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.bridge-token
+.bridge-bindings.json
+dist/
+.venv/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+papers/
+*.pdf

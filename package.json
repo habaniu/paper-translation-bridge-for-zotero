@@ -1,0 +1,18 @@
+{
+  "name": "paper-translation-bridge-for-zotero",
+  "version": "0.4.3",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "prepare-paper": "node scripts/prepare-paper.mjs",
+    "align": "node cli.mjs align",
+    "test": "node --test tests/*.test.mjs",
+    "build:plugin": "node scripts/build-plugin.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.3.289",
+    "markdown-it": "15.0.2",
+    "katex": "0.18.7"
+  }
+}
