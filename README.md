@@ -4,6 +4,8 @@
 
 当前版本 0.4.3。
 
+![在 Zotero 里对照阅读：左侧 PDF 选中的英文句子和右侧高亮的中文译文](static/demo.jpg)
+
 ## 快速上手
 
 需要 Node.js 22.13+、Python 3 和 pdfplumber。首次使用（以下命令都在仓库根目录执行，`$PWD` 即该根目录；`.venv`、`node_modules`、`papers/` 都在 `.gitignore` 里，是本机产物）：
