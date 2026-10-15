@@ -2,8 +2,6 @@
 
 让 Agent 通篇翻译论文，然后在 Zotero 里对照原文读。仓库里有两部分：一个翻译 skill（在 `.agents/skills/paper-translation/`）和一个 Zotero 侧栏插件（在 `plugin/`）。翻译由 Agent 完成，插件只负责显示——它读本地的 PDF、索引和译文，做双向定位，不联网，不碰模型。
 
-当前版本 0.4.3。
-
 ![在 Zotero 里对照阅读：左侧 PDF 选中的英文句子和右侧高亮的中文译文](static/demo.jpg)
 
 ## 快速上手
